@@ -10,9 +10,9 @@ import urllib
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# The API end points 
+# The API end points
 price_url = "https://api.uber.com/v1/estimates/price"
-product_url = "https://api.uber.com/v1/products"
+#product_url = "https://api.uber.com/v1/products"
 time_url = "https://api.uber.com/v1/estimates/time"
 
 # Parse in the configuration information to get uber server tokens
@@ -27,7 +27,7 @@ time_interval = int(config.get("MainConfig", "time_interval"))
 
 # Create a file to store data
 fileWriter = csv.writer(open(output_file_name, "w+"),delimiter=",")
-fileWriter.writerow(["timestamp", "surge_multiplier", "expected_wait_time", "product_type", "low_estimate", "high_estimate", "start_location_id", "end_location_id"])
+fileWriter.writerow(["timestamp", "surge_multiplier", "expected_wait_time", "product_type", "start_location_id"])
 
 # These api param objects are used to send requests to the API, we create api_param objects for each location and endpoint we want to gather
 api_params = []
@@ -42,9 +42,9 @@ for l in locations:
 
 	time_parameters = {
 		'start_latitude': l["latitude"],
-		'start_longitude': l["longitude"],		
+		'start_longitude': l["longitude"],
 	}
-	
+
 	api_params.append({"url": price_url, "location_id": location_id, "type": "price", "parameters": price_parameters})
 	api_params.append({"url": time_url, "location_id": location_id, "type": "time", "parameters": time_parameters})
 
@@ -55,12 +55,12 @@ def gather_loop():
 	# A list to hold our things to do via async
 	async_action_items = []
 	common_data_dict = {}
-	for i, api_param in enumerate(api_params):		
+	for i, api_param in enumerate(api_params):
 		# Get the current time
 		api_param["datetime"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 		api_param["data"] = common_data_dict
 		api_param["parameters"]["server_token"] = uber_server_tokens[tokennum % len(uber_server_tokens)]
-		# From here: http://stackoverflow.com/questions/25115151/how-to-pass-parameters-to-hooks-in-python-grequests			
+		# From here: http://stackoverflow.com/questions/25115151/how-to-pass-parameters-to-hooks-in-python-grequests
 		action_item = grequests.get(api_param["url"]+"?"+urllib.urlencode(api_param["parameters"]), hooks={'response': [hook_factory(api_param)]})
 		async_action_items.append(action_item)
 		# increment the token num so that we use the next server key next time
@@ -71,10 +71,10 @@ def gather_loop():
 
 
 def hook_factory(*factory_args, **factory_kwargs):
-	def it_responded(res, **kwargs):		
+	def it_responded(res, **kwargs):
 		call_type = factory_args[0]["type"]
 		location_id = factory_args[0]["location_id"]
-		current_time = factory_args[0]["datetime"]		
+		current_time = factory_args[0]["datetime"]
 		data_dict = factory_args[0]["data"]
 		print data_dict
 		try:
@@ -83,7 +83,7 @@ def hook_factory(*factory_args, **factory_kwargs):
 			# Parse the data differently depending on the type of call it was
 			try:
 				if call_type == "time":
-					for t in json_response["times"]:	
+					for t in json_response["times"]:
 						if t["display_name"] not in data_dict:
 							data_dict[t["display_name"]] = {}
 						data_dict[t["display_name"]]["expected_wait_time"] = t["estimate"]
@@ -91,7 +91,7 @@ def hook_factory(*factory_args, **factory_kwargs):
 					for p in json_response["prices"]:
 						if p["display_name"] not in data_dict:
 							data_dict[p["display_name"]] = {}
-						
+
 						data_dict[p["display_name"]]["surge_multiplier"] = p["surge_multiplier"]
 						data_dict[p["display_name"]]["product_type"] = p["display_name"]
 						data_dict[p["display_name"]]["low_estimate"] = p["low_estimate"]
@@ -113,7 +113,7 @@ def hook_factory(*factory_args, **factory_kwargs):
 					#if it has time and price then store it
 					if "expected_wait_time" in data_dict[p] and "surge_multiplier" in data_dict[p]:
 						#print data_dict[p]
-						fileWriter.writerow([data_dict[p]["timestamp"], data_dict[p]["surge_multiplier"], data_dict[p]["expected_wait_time"], data_dict[p]["product_type"], data_dict[p]["low_estimate"], data_dict[p]["high_estimate"], data_dict[p]["start_location_id"], data_dict[p]["end_location_id"]])
+						fileWriter.writerow([data_dict[p]["timestamp"], data_dict[p]["surge_multiplier"], data_dict[p]["expected_wait_time"], data_dict[p]["product_type"], data_dict[p]["start_location_id"]])
 			except TypeError as e:
 				print e
 
@@ -122,7 +122,7 @@ def hook_factory(*factory_args, **factory_kwargs):
 			print json_response
 			print res.content
 			print e
-		
+
 	return it_responded
 
 
@@ -138,4 +138,3 @@ while True:
 
 
 # nohup python -u gatherUberData.py > nohup.txt &
-
