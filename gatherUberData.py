@@ -10,6 +10,10 @@ import urllib
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 
+# Get Uber key
+with open(os.path.expanduser("~/.uberkey")) as keyfp:
+    uber_server_tokens = json.load(keyfp)["uber_server_tokens"]
+
 # The API end points
 price_url = "https://api.uber.com/v1/estimates/price"
 #product_url = "https://api.uber.com/v1/products"
@@ -18,10 +22,13 @@ time_url = "https://api.uber.com/v1/estimates/time"
 # Parse in the configuration information to get uber server tokens
 config = ConfigParser.ConfigParser()
 config.read(os.path.dirname(os.path.abspath(__file__)) + "/config.conf")
-uber_server_tokens = (config.get("MainConfig", "uber_server_tokens")).split(",")
+#uber_server_tokens = (config.get("MainConfig", "uber_server_tokens")).split(",")
 
 # Parse in the locations and output file name
-locations = json.loads(config.get("MainConfig", "locations"))
+config_locations = config.get("MainConfig", "locations")
+#print "locations: {!r}".format(config_locations)
+#sys.exit()
+locations = json.loads(config_locations)
 output_file_name = config.get("MainConfig", "output_file_name")
 time_interval = int(config.get("MainConfig", "time_interval"))
 
